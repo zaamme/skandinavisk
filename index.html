@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skandinavisk</title>
+</head>
+
+<body>
+    <header>
+        <div class="titleBox">
+            <a>Skandinavisk</a>
+        </div>
+    </header>
+    <div class="content">
+        <div class="column">
+            <div class="container" id="translationBox">
+                <div class="box">
+                    <div class="translateHeader">
+                        <div onclick="change_lang('sv')">Svensk</div>
+                        <div onclick="change_lang('da')">Dansk</div>
+                        <div onclick="change_lang('no')">Bokmål</div>
+                        <div onclick="change_lang('nn')">Nynorsk</div>
+                        <div onclick="change_lang('en')">Engelsk</div>
+                        <div>Skandinavisk</div>
+                    </div>
+                    <div class="translationText">
+                        <div class="half">
+                            <textarea name="lol" id="lol" onkeyup="textAreaChange(this)"></textarea>
+                        </div>
+                        <div class="half">
+                            <div id="translatedText"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="container" id="vocabularyBox">
+                <div class="box">
+                    <table>
+                        <thead></thead>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
+<script>
+let langs = [['en', 'engelsk'], ['sv', 'svensk'], ['da', 'dansk'], ['no', 'bokmål'], ['nn', 'nynorsk']]
+
+String.prototype.capitalize = function() {
+    return this.charAt(0).toUpperCase() + this.slice(1);
+}
+Object.size = function(obj) {
+        var size = 0, key;
+        for (key in obj) {
+            if (obj.hasOwnProperty(key)) size++;
+        }
+        return size;
+    };
+
+for (l in langs) {
+    let lang = langs[l]
+    $('thead').append(
+        $(document.createElement('th')).html(lang[1].capitalize())
+    )
+}
+$('thead').append($(document.createElement('th')).html('Skandinavisk'))
+
+let current_lang = 'sv'
+let alphabet = 'a b c d e f g h i j k l m n o p q r s t u v w x y z å ä ö æ ø A B C D E F G H I J K L M N O P Q R S T U V W X Y Z Å Ö Ä Æ Ø'.split(' ')
+let dictionary = {}
+$.getJSON('dictionary.json', function (data) {
+    dictionary = {}
+    Object.keys(data).sort().forEach(function(key) {
+        dictionary[key] = data[key];
+    });
+
+    $('#vocabularyBox').css('height', 28+26.5*Object.size(dictionary)+'px')
+    for (word in dictionary) {
+        w = dictionary[word]
+
+        row = document.createElement('tr')
+
+        for (l in langs) {
+            let lang = langs[l]
+            $(row).append(
+                $(document.createElement('td'))
+                    .html(w[lang[0]])
+            )
+        }
+
+        $(row)
+            .append($(document.createElement('td')).html(word))
+            .appendTo('table')
+    }
+})
+let vocabulary = Object.keys(dictionary)
+
+
+function change_lang(lang) {
+    current_lang = lang
+}
+function levenshtein(str1, str2) {
+       var cost = new Array(),
+           n = str1.length,
+           m = str2.length,
+           i, j;
+
+       var minimum = function(a,b,c) {
+           var min = a;
+           if(b < min) {
+              min = b;
+           }
+           if(c < min) {
+              min = c;
+           }
+        return min;
+       }
+       if(n == 0) {
+           return;  
+       } 
+       if(m == 0) {
+           return;  
+       }
+       for(var i=0;i<=n;i++) {
+           cost[i] = new Array();
+       }
+       for(i=0;i<=n;i++) {
+           cost[i][0] = i;
+       }
+       for(j=0;j<=m;j++) {
+           cost[0][j] = j;
+       }
+       for(i=1;i<=n;i++) {
+           var x = str1.charAt(i-1);
+           for(j=1;j<=m;j++) {
+               var y = str2.charAt(j-1);
+               if(x == y) {
+                  cost[i][j] = cost[i-1][j-1]; 
+               } else {
+                  cost[i][j] = 1 + minimum(cost[i-1][j-1], cost[i][j-1], cost[i-1][j]);
+               } 
+           }//endfor
+        }//endfor
+        return cost[n][m];  
+    }
+function matchWords(input) {
+    return vocabulary.filter(function(word){
+        var lev = levenshtein(input, word);    
+        if(lev >=0 && lev <= 1 ) {
+            return word;
+        }
+    });    
+}
+function textAreaChange(e) {
+    $('#translatedText').html(cutText(e.value))
+}
+function scandinavianize_word(word) {
+    word = word.replaceAll('ö', 'ø').replaceAll('ä', 'æ')
+    if (word.length > 1 && !vocabulary.includes(word)) {
+        matchedWord = matchWords(word)[0]
+        if (matchedWord != '' && matchedWord != undefined) {
+            return matchedWord
+        } else { return word }
+    } else { return word }
+}
+function translate(word, lang='sv') {
+    for (w in dictionary) {
+        if (dictionary[w][lang] == word) { return w }
+    }
+    return word 
+}
+function cutText(txt) {
+    let newTxt = []
+    let lastCut = 0
+
+    for (let c = 0; c < txt.length; c++) {
+        let char = txt[c]
+        if (!alphabet.includes(char)) {
+            newTxt.push(txt.slice(lastCut,c))
+            newTxt.push(char)
+            lastCut = c+1
+        }
+    }
+    newTxt.push(txt.slice(lastCut))
+
+    for (let w = 0; w < newTxt.length; w++) {
+        newTxt[w] = newTxt[w].replaceAll('ö', 'ø').replaceAll('ä', 'æ')
+        newTxt[w] = translate(newTxt[w], current_lang)
+        newTxt[w] = scandinavianize_word(newTxt[w])
+    }
+
+    return newTxt.join('')
+}
+
+
+</script>
+
+<style>
+    :root {
+    --background: rgb(236, 238, 239);
+    --primary: #fff;
+    --secondary: #ddd;
+    --border: 1px solid rgb(221, 220, 220);
+    --box-shadow: 0 0 5px 0 rgba(0, 0, 0, 0.03);
+    --border-radius: 10px;
+    }
+    html, body {
+        min-width: 320px;
+        color: #444;
+        margin: 0;
+        padding: 0;
+        /* overflow: hidden; */
+        font-family: Arial, Helvetica, sans-serif;
+        background-color: var(--background);
+    }
+    header {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        /* background-color: var(--primary);
+        border-bottom: var(--border);
+        box-shadow: var(--box-shadow); */
+    }
+    .titleBox {
+        justify-content: center;
+        padding: 60px 0;
+    }
+    .titleBox a {
+        font-size: 40px;
+    }
+    .content {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+    .column {
+        display: flex;
+        flex-direction: column;
+        width: 800px;
+        min-height: 200px;
+        padding: 30px 0;
+        display: flex;
+    }
+    @media only screen and (max-width: 860px) {
+        .column {
+            width: calc(100% - 60px);
+        }
+    }
+    @media only screen and (max-width: 500px) {
+        .column {
+            width: 95%;
+        }
+    }
+    .container {
+        width: 100%;
+        margin: 10px 0;
+        min-height: 100px;
+        /* background-color: violet; */
+        position: relative;
+    }
+    #translationBox {
+        height: 200px;
+    }
+    .box {
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        width: calc(100% - 20px);
+        height: calc(100% - 20px);
+        background-color: var(--primary);
+        border-bottom: var(--border);
+        box-shadow: var(--box-shadow);
+        border-radius: var(--border-radius);
+    }
+    .translateHeader {
+        height: 40px;
+        width: calc(100% - 30px);
+        padding: 0 15px;
+        border-bottom: var(--border);
+    }
+    .translateHeader div {
+        padding: 10px;
+        float: left;
+        cursor: pointer;
+    }
+    .translateHeader div:last-child {
+        float: right;
+        cursor: text;
+    }
+    .translationText {
+        width: 100%;
+        height: 90px;
+        display: flex;
+    }
+    .half {
+        width: 50%;
+        height: 100%;
+    }
+    .half:first-of-type {
+        border-right: var(--border);
+    }
+    textarea {
+        width: calc(100% - 23px);
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 16px;
+        color: #444;
+        height: 110px;
+        margin: 10px;
+        border: none;
+        resize: none;
+    }
+    #translatedText {
+        font-size: 16px;
+        color: #444;
+        min-height: 80px;
+        margin: 10px;
+    }
+    td, th {
+        height: 22px;
+        text-align: left;
+        border-right: 1px solid #ccc;
+        border-bottom: 1px solid #ddd;
+    }
+    th {
+        width: 16%;
+    }
+    th:last-of-type {
+        width: 20%;
+    }
+    /* @media (prefers-color-scheme: no-preference) {
+        html, body {
+            background-color: white;
+            color: black;
+        }
+    }
+    @media (prefers-color-scheme: dark) {
+        html, body {
+            background-color: black;
+            color: white;
+        }
+    }
+    @media (prefers-color-scheme: light) {
+        html, body {
+            background-color: white;
+            color: black;
+        }
+    } */
+</style>
